@@ -1,29 +1,43 @@
-Vagrant.configure("2") do |config|
-  config.vm.box = "dummy"
-  #config.vm.synced_folder ".", "/vagrant", disabled: true
+# baixa e instala ruby, rails, passenger e apache
+$script_apache = <<SCRIPT
+sudo apt-get update
+sudo apt-get install git-core -y
+git clone https://github.com/Hismahil/unioeste_puppet_tcc.git /home/ubuntu/puppet
+mv /home/ubuntu/puppet/modules /usr/share/puppet/modules
+sudo puppet apply /home/ubuntu/puppet/manifests/server.pp
+sudo chgrp ubuntu /var/www
+sudo chmod 775 /var/www
+sudo chown -R ubuntu /var/www/*
+SCRIPT
 
+# para instalar a aplicacao depois da implantacao pelo capistrano
+$script_app = <<SCRIPT
+sudo puppet apply /home/ubuntu/puppet/manifests/cp_vhost.pp
+SCRIPT
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "dummy" # dummy box used
+  config.vm.synced_folder ".", "/vagrant", disabled: true # no virtual folder
+
+  # AWS instance config
   config.vm.provider :aws do |aws, override|
-    aws.access_key_id = "XXXXXXXXXXXXXXXX"
-    aws.secret_access_key = "XXXXXXXXXXXXXXXXXXXXX"
+    aws.access_key_id = "XXXXXXXXXXXXXXXXXXX" 
+    aws.secret_access_key = "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
     aws.ami = "ami-cf6865ff"
     aws.region = "us-west-2"
     aws.availability_zone = "us-west-2b"
-    aws.keypair_name = "asklsalksalk"
+    aws.keypair_name = "tcc"
     aws.security_groups = ["servidor-passenger"]
 
     aws.tags = {
-      'Name' => 'tcc-oregon-unioeste',
+      'Name' => 'tcc-unioeste', # AWS instance name
     }
     
     aws.instance_type = "t2.micro"
     
     override.ssh.username = "ubuntu"
-    override.ssh.private_key_path = "aksalksaklas.pem"
+    override.ssh.private_key_path = "tcc.pem" # path for pem
   end
 
-  config.vm.provision "puppet" do |puppet|
-    puppet.manifests_path = "puppet/manifests"
-    puppet.module_path    = "puppet/modules"
-    puppet.manifest_file  = "server.pp"
-  end
+  config.vm.provision "shell", inline: $script_apache # provision after start
 end
